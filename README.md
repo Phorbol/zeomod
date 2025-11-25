@@ -4,7 +4,7 @@
 
 
 
-![image-20251125185928111](C:\Users\user\AppData\Roaming\Typora\typora-user-images\image-20251125185928111.png)
+![image-20251125185928111](ZeoMod.png)
 
 **ZeoMod** is a high-performance Python toolkit designed for computational chemists to automate the construction of complex mesoporous zeolite models. It aims to bridge the gap between ideal crystal structures (CIF) and realistic, functionalized catalyst models.↳
 

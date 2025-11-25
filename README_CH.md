@@ -6,7 +6,7 @@
 
 
 
-![image-20251125185928111](C:\Users\user\AppData\Roaming\Typora\typora-user-images\image-20251125185928111.png)
+![image-20251125185928111](ZeoMod.png)
 
 **ZeoMod** 是一个专为计算化学家设计的高性能 Python 工具包，用于自动化构建复杂的介孔沸石分子筛模型。它旨在弥合理想晶体结构 (CIF) 与真实的、功能化的催化剂模型之间的鸿沟。
 
