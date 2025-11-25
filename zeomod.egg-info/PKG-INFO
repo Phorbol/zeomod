@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: zeomod
+Version: 0.1.0
+Summary: A professional tool for automated modeling of mesoporous zeolites, intelligent passivation, and topology-guided doping.
+Author-email: Your Name <your.email@example.com>
+License: MIT
+Project-URL: Homepage, https://github.com/YOUR_USERNAME/zeomod
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=2.0
+Requires-Dist: scipy>=1.7.0
+Requires-Dist: ase>=3.22.0
+Requires-Dist: matscipy>=0.9.0
+Requires-Dist: pyyaml>=6.0

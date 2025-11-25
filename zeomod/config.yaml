@@ -1,0 +1,32 @@
+# input.yaml - 沸石建模参数文件
+
+# --- 输入输出 ---
+input_cif: "MFI.cif"       # 原始结构路径
+output_dir: "run_results"  # 结果输出目录
+
+# --- 孔道几何 ---
+pore_shape: "cylinder"     # 选项: sphere, cylinder, box, ellipsoid
+pore_diameter: 12.0        # 主要尺寸 (Å)
+pore_buffer: 4.0           # 扩胞时的安全缓冲 (Å)
+cylinder_axis: "z"         # 圆柱轴向: x, y, z
+pore_center_frac: [0.5, 0.5, 0.5] # 孔中心分数坐标
+# pore_dimensions: [10, 12, 10]   # (可选) 仅用于 box/ellipsoid 的各向异性尺寸
+
+# --- 化学参数 ---
+si_al_ratio: 15.0          # 硅铝比
+efal_ratio: 0.1            # 非骨架铝比例 (0.0 - 1.0)
+
+# --- 智能掺杂策略 ---
+# mode: 'pair' (成对) 或 'auto_single' (孤立)
+# ratio: 0.0-1.0 或 'remainder' (剩余全部)
+doping_campaign:
+  - mode: "pair"
+    pair_type: "NNNN"      # NNN (2步) 或 NNNN (3步)
+    ratio: 0.6             # 60% 的 Al 成对出现
+  - mode: "auto_single"
+    ratio: "remainder"     # 剩余的 Al 随机分布
+
+# --- 算法微调 (通常保持默认) ---
+max_doping_trials: 50      # Löwenstein 规则重试次数
+rotation_steps_h_placement: 72 # H原子搜索精度
+collision_threshold: 1.2   # 骨架碰撞阈值\

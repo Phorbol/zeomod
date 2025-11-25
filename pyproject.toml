@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zeomod"
+version = "0.1.0"
+description = "A professional tool for automated modeling of mesoporous zeolites, intelligent passivation, and topology-guided doping."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+  {name = "Your Name", email = "your.email@example.com"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.7.0",
+    "ase>=3.22.0",
+    "matscipy>=0.9.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+# 这行定义了安装后的命令行入口：zeomod 命令指向 zeomod包下cli模块的main函数
+zeomod = "zeomod.cli:main"
+
+[project.urls]
+"Homepage" = "https://github.com/YOUR_USERNAME/zeomod"

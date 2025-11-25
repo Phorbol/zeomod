@@ -1,0 +1,2 @@
+[console_scripts]
+zeomod = zeomod.cli:main
