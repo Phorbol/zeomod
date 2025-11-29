@@ -46,7 +46,16 @@ class BatchZeoliteConfig:
     skip_supercell: bool = False  # 跳过扩胞 (假设输入已经是超胞)
     skip_cut: bool = False        # 跳过切孔/清洗/钝化 (假设输入已经有孔或不需要孔)
     skip_doping: bool = False     # 跳过掺杂 (只生成纯硅骨架)
+    adsorption_specs: List[Dict[str, Any]] = field(default_factory=list)
 
+    
+    # [新增] 全局吸附碰撞阈值 (单位: Å)
+    # 默认 1.6 Å，控制吸附质与骨架原子的最小允许距离
+    adsorption_cutoff: float = 1.6
+    adsorbate_file: Optional[str] = None
+    adsorbate_count: int = 0
+    target_element: Optional[str] = None  # 对应 --ad-target
+    target_radius: float = 3.0            # 对应 --ad-radius [新增]
 
     @classmethod
     def from_yaml(cls, yaml_path: str):

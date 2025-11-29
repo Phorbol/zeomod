@@ -10,24 +10,14 @@ from .topology import GraphProcessor
 from .operations import (
     create_supercell_automatically, 
     create_passivated_mesopore, 
-    add_bronsted_sites
+    add_bronsted_sites,
 )
 from .validators import validate_pure_silica, validate_bronsted
-
+from .adsorption import perform_adsorption
 def parse_override_value(value_str):
-    """
-    智能解析命令行传入的字符串值
-    '10' -> 10 (int)
-    '10.5' -> 10.5 (float)
-    'True' -> True (bool)
-    '[1,2,3]' -> [1, 2, 3] (list)
-    'cylinder' -> 'cylinder' (str)
-    """
     try:
-        # 尝试作为 Python 字面量解析 (处理数字, bool, list, dict)
         return ast.literal_eval(value_str)
     except (ValueError, SyntaxError):
-        # 如果解析失败，说明它只是一个普通字符串
         return value_str
 
 def main():
@@ -39,41 +29,45 @@ def main():
     parser.add_argument('--generate-template', action='store_true',
                         help='生成默认配置文件模板并退出')
 
-    # --- 2. 高频参数覆盖 (Explicit Flags) ---
+    # --- 2. 高频参数覆盖 ---
     group_io = parser.add_argument_group('I/O Overrides')
     group_io.add_argument('--input', '-i', type=str, help='覆盖输入 CIF 文件')
     group_io.add_argument('--output', '-o', type=str, help='覆盖输出目录')
 
     group_geom = parser.add_argument_group('Geometry Overrides')
-    group_geom.add_argument('--shape', '-s', type=str, choices=['sphere', 'cylinder', 'box', 'ellipsoid'],
-                            help='孔道形状')
+    group_geom.add_argument('--shape', '-s', type=str, choices=['sphere', 'cylinder', 'box', 'ellipsoid'], help='孔道形状')
     group_geom.add_argument('--diameter', '-d', type=float, help='孔道主要直径 (Å)')
     group_geom.add_argument('--buffer', '-b', type=float, help='扩胞缓冲距离 (Å)')
     group_geom.add_argument('--axis', type=str, choices=['x', 'y', 'z'], help='圆柱轴向')
 
     group_chem = parser.add_argument_group('Chemistry Overrides')
-    group_chem.add_argument('--si-al', '-r', type=float, help='硅铝比 (Si/Al Ratio)')
-    group_chem.add_argument('--num-al', '-n', type=int, help='直接指定 Al 原子的总数量 (覆盖硅铝比)')  # [新增]
-    group_chem.add_argument('--efal', type=float, help='非骨架铝比例 (EFAl Ratio)')
+    group_chem.add_argument('--si-al', '-r', type=float, help='硅铝比')
+    group_chem.add_argument('--num-al', '-n', type=int, help='固定 Al 原子数量')
+    group_chem.add_argument('--efal', type=float, help='非骨架铝比例')
 
-    # --- 3. 万能覆盖参数 (Dynamic Overrides) ---
-    parser.add_argument('--set', nargs='*', metavar='KEY=VALUE',
-                        help='高级覆盖: 修改任意配置参数 (例如: --set collision_threshold=1.5 max_doping_trials=20)')
+    # --- 3. 吸附参数 (Adsorption Overrides) ---
+    group_ad = parser.add_argument_group('Adsorption Overrides')
+    group_ad.add_argument('--ad-file', action='append', type=str, help='吸附分子文件 (可多次指定)')
+    group_ad.add_argument('--ad-count', action='append', type=int, help='对应吸附数量')
+    group_ad.add_argument('--ad-target', action='append', type=str, help='对应目标元素')
+    group_ad.add_argument('--ad-radius', action='append', type=float, help='对应吸附半径')
 
+    # --- 4. 流程控制 ---
+    parser.add_argument('--set', nargs='*', metavar='KEY=VALUE', help='高级参数覆盖')
     group_flow = parser.add_argument_group('Workflow Control')
     group_flow.add_argument('--skip-supercell', action='store_true', help='跳过自动扩胞')
-    group_flow.add_argument('--skip-cut', action='store_true', help='跳过切孔与钝化')
-    group_flow.add_argument('--skip-doping', action='store_true', help='跳过Al掺杂')
+    group_flow.add_argument('--skip-cut', action='store_true', help='跳过切孔')
+    group_flow.add_argument('--skip-doping', action='store_true', help='跳过掺杂')
 
     args = parser.parse_args()
 
-    # --- 生成模板 ---
+    # --- 模板生成 ---
     if args.generate_template:
         BatchZeoliteConfig().dump_yaml('template_config.yaml')
         print("✅ 已生成默认模板: template_config.yaml")
         sys.exit(0)
 
-    # --- 步骤 1: 加载 YAML ---
+    # --- 加载配置 ---
     print(f"Reading configuration from: {args.config_file}")
     try:
         if Path(args.config_file).exists():
@@ -85,8 +79,7 @@ def main():
         print(f"❌ YAML 加载失败: {e}")
         sys.exit(1)
 
-    # --- 步骤 2: 应用显式 CLI 参数 (Explicit Overrides) ---
-    # 仅当用户在命令行提供了该参数时才覆盖
+    # --- 应用参数覆盖 ---
     if args.input: config.input_cif = args.input
     if args.output: config.output_dir = args.output
     if args.shape: config.pore_shape = args.shape
@@ -95,85 +88,131 @@ def main():
     if args.axis: config.cylinder_axis = args.axis
     if args.si_al: config.si_al_ratio = args.si_al
     if args.efal: config.efal_ratio = args.efal
-    if args.num_al: config.num_al_atoms = args.num_al  # [新增] 同步到 config
+    if args.num_al: config.num_al_atoms = args.num_al
 
-    # --- 步骤 3: 应用万能覆盖参数 (Generic Overrides) ---
-    # 处理 --set key=value 列表
     if args.set:
         print("Processing generic overrides:")
         for item in args.set:
-            if '=' not in item:
-                print(f"  ⚠️ 忽略无效格式: {item} (应为 key=value)")
-                continue
-            
+            if '=' not in item: continue
             key, val_str = item.split('=', 1)
-            
-            # 检查 key 是否有效
-            if not hasattr(config, key):
-                print(f"  ⚠️ 警告: 配置中不存在参数 '{key}'，将被忽略。")
-                continue
-                
-            # 智能转换类型
-            val = parse_override_value(val_str)
-            
-            # 执行覆盖
-            setattr(config, key, val)
-            print(f"  -> Set '{key}' = {val} ({type(val).__name__})")
+            if hasattr(config, key):
+                setattr(config, key, parse_override_value(val_str))
 
     if args.skip_supercell: config.skip_supercell = True
     if args.skip_cut: config.skip_cut = True
     if args.skip_doping: config.skip_doping = True
 
-    # --- 准备工作目录 ---
+    # --- 准备目录 ---
     Path(config.output_dir).mkdir(parents=True, exist_ok=True)
 
-    # --- 步骤 4: 执行核心流程 (与之前相同) ---
+    # --- 核心流程 ---
     try:
-        # 1. Loading
-        print(f"\n>>> [1/4] Loading Structure: {config.input_cif}")
-        atoms = read(config.input_cif)
-        current_atoms = atoms # 使用一个变量跟踪当前结构
+        # [0] 初始化 status_tag (防止 UnboundLocalError)
+        status_tag = ""
+        if config.skip_cut: status_tag += "_NoCut"
+        if config.skip_doping: status_tag += "_PureSi"
 
-        # 2. Supercell
+        # [1] Load
+        print(f"\n>>> [1/5] Loading Structure: {config.input_cif}")
+        atoms = read(config.input_cif)
+        current_atoms = atoms
+
+        # [2] Supercell
         if not config.skip_supercell:
-            print(f"\n>>> [2/4] Creating Supercell (Proactive V3)...")
+            print(f"\n>>> [2/5] Creating Supercell...")
             current_atoms = create_supercell_automatically(current_atoms, config)
         else:
-            print(f"\n>>> [2/4] Skipping Supercell (User Request).")
+            print(f"\n>>> [2/5] Skipping Supercell.")
 
-        # 3. Pore Cutting
+        # [3] Cut
         if not config.skip_cut:
-            print(f"\n>>> [3/4] Cutting Pore & Passivating...")
+            print(f"\n>>> [3/5] Cutting Pore...")
             current_atoms = create_passivated_mesopore(current_atoms, config)
             validate_pure_silica(current_atoms)
         else:
-            print(f"\n>>> [3/4] Skipping Cutting & Passivation (User Request).")
+            print(f"\n>>> [3/5] Skipping Cutting.")
 
-        # 4. Doping
+        # [4] Doping
         if not config.skip_doping:
-            # 只有当 Si/Al 比合理时才执行，且用户没跳过
-            need_doping = (config.num_al_atoms is not None and config.num_al_atoms > 0) or \
-                      (config.si_al_ratio > 0 and config.si_al_ratio < 10000)
-
+            need_doping = (config.num_al_atoms and config.num_al_atoms > 0) or \
+                          (config.si_al_ratio > 0 and config.si_al_ratio < 10000)
             if need_doping:
-                print(f"\n>>> [4/4] Doping Al & Adding Protons...")
+                print(f"\n>>> [4/5] Doping Al...")
                 graph = GraphProcessor(current_atoms)
                 current_atoms = add_bronsted_sites(current_atoms, config, graph)
                 validate_bronsted(current_atoms, graph)
             else:
-                print("    Skipping doping (No Al requested via Ratio or Num-Al).")
+                print("    Skipping doping (No Al requested).")
         else:
-            print(f"\n>>> [4/4] Skipping Doping (User Request).")
-        # 5. Save
-        # 自动生成一个带有状态标识的文件名
-        status_tag = ""
-        if config.skip_cut: status_tag += "_NoCut"
-        if config.skip_doping: status_tag += "_PureSi"
-        
+            print(f"\n>>> [4/5] Skipping Doping.")
+
+        # [5] Adsorption (修复版逻辑)
+        # 优先构建任务清单
+        if args.ad_file:
+            specs = []
+            files = args.ad_file
+            n = len(files)
+            # 补全列表
+            counts = args.ad_count if args.ad_count else []
+            if len(counts) < n: counts.extend([1] * (n - len(counts)))
+            
+            targets = args.ad_target if args.ad_target else []
+            if len(targets) < n: targets.extend([None] * (n - len(targets)))
+            
+            radii = args.ad_radius if args.ad_radius else []
+            if len(radii) < n: radii.extend([5.0] * (n - len(radii)))
+            
+            for i in range(n):
+                specs.append({
+                    'file': files[i], 
+                    'count': counts[i], 
+                    'target': targets[i], 
+                    'radius': radii[i]
+                })
+            config.adsorption_specs = specs
+
+        # 执行任务
+        if config.adsorption_specs:
+            print(f"\n>>> [5/5] Adsorption Module (Running {len(config.adsorption_specs)} tasks)...")
+            total_inserted = 0
+            
+            for i, spec in enumerate(config.adsorption_specs):
+                f_path = spec.get('file')
+                count = spec.get('count', 1)
+                
+                if not f_path: continue
+
+                # [关键修复]：确保 f_path 是字符串，不是列表！
+                if isinstance(f_path, list):
+                    f_path = str(f_path[0]) # 兜底逻辑
+                else:
+                    f_path = str(f_path)
+
+                print(f"  -> Task {i+1}: {Path(f_path).name} (n={count})")
+                
+                # 注入运行时参数
+                config.adsorbate_file = f_path  # 此时必为 str
+                config.adsorbate_count = int(count)
+                config.target_element = spec.get('target')
+                config.target_radius = float(spec.get('radius', 5.0))
+                
+                try:
+                    current_atoms = perform_adsorption(current_atoms, config)
+                    total_inserted += count
+                except Exception as e:
+                    print(f"     ❌ Task Failed for {f_path}: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+            print(f"✅ Adsorption batch complete.")
+            status_tag += f"_AdsMix{total_inserted}"
+        else:
+            print(f"\n>>> [5/5] Skipping Adsorption.")
+
+        # [6] Save
         save_name = f"result_{config.pore_shape}{status_tag}.cif"
         save_path = Path(config.output_dir) / save_name
         write(save_path, current_atoms)
-        
         config.dump_yaml(Path(config.output_dir) / "run_config_snapshot.yaml")
         print(f"\n✅ Success! Structure saved to: {save_path}")
 

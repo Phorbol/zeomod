@@ -1,8 +1,11 @@
+LICENSE
+README.md
 pyproject.toml
 test/test_chemistry.py
 test/test_config.py
 test/test_geometry.py
 test/test_workflow.py
+zeomod/adsorption.py
 zeomod/cli.py
 zeomod/config.py
 zeomod/main.py
