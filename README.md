@@ -137,6 +137,9 @@ zeomod input.yaml --shape cylinder --axis z --diameter 12.0 --output run_cyl_12
 
 # Force doping of exactly 4 Al atoms, ignoring the ratio in the config file
 zeomod input.yaml --num-al 4 --output run_fixed_al4
+
+# Replace specific Si atoms (zero-based atom indices) with Al
+zeomod input.yaml --doping-sites 12 28 34
 ```
 
 ------
@@ -175,8 +178,11 @@ The configuration file (`input.yaml`) supports rich parameter settings.
 | ------------------- | -------- | ----------- | ------------------------------------------------------------ |
 | `si_al_ratio`       | float    | 30.0        | Target Si/Al ratio.                                          |
 | `num_al_atoms`      | int      | None        | **[Priority]** Explicitly specify the total number of Al atoms to dope. If set and >0, ignores `si_al_ratio`. |
+| `doping_sites`      | list[int] | None       | Exact zero-based atom indices of Si atoms to replace with framework Al. When set, this list determines the number and locations of dopants and takes precedence over `num_al_atoms`, `si_al_ratio`, and `doping_campaign`. Indices refer to the structure entering the doping stage, after any supercell creation and pore cutting. |
 | `doping_campaign`   | list     | [...]       | (Advanced) List defining site selection strategies. See template comments for details. |
 | `max_doping_trials` | int      | 100         | Maximum attempts to find sites satisfying Löwenstein's rule. |
+
+Explicit sites must identify distinct Si atoms. ZeoMod rejects invalid indices and any selected set that would violate Löwenstein's rule. This mode places framework Al only; `efal_ratio` is not applied.
 
 
 

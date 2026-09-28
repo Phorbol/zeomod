@@ -139,6 +139,9 @@ zeomod input.yaml --shape cylinder --axis z --diameter 12.0 --output run_cyl_12
 
 # 强制指定掺杂 4 个 Al 原子，忽略配置文件中的比例
 zeomod input.yaml --num-al 4 --output run_fixed_al4
+
+# 将指定索引的 Si 原子 (从 0 开始) 替换为 Al
+zeomod input.yaml --doping-sites 12 28 34
 ```
 
 ------
@@ -177,8 +180,11 @@ zeomod input.yaml --num-al 4 --output run_fixed_al4
 | ------------------- | -------- | ---------- | ------------------------------------------------------------ |
 | `si_al_ratio`       | float    | 30.0       | 目标硅铝比。                                                 |
 | `num_al_atoms`      | int      | None       | **[优先]** 显式指定要掺杂的 Al 原子总数。若设置且 >0，则忽略 `si_al_ratio`。 |
+| `doping_sites`      | list[int] | None      | 明确指定替换为骨架 Al 的 Si 原子索引（从 0 开始）；设置后由该列表确定掺杂数量和位置，并优先于 `num_al_atoms`、`si_al_ratio` 和 `doping_campaign`。索引针对进入掺杂阶段时的结构（扩胞、切孔之后）。 |
 | `doping_campaign`   | list     | [...]      | (高级) 定义掺杂位点选择策略的列表，详见模板注释。            |
 | `max_doping_trials` | int      | 100        | 寻找满足 Löwenstein 规则位点的最大尝试次数。                 |
+
+显式位点必须对应不同的 Si 原子。无效索引以及违反 Löwenstein 规则的位点组合会被拒绝。此模式只在骨架位点放置 Al，不应用 `efal_ratio`。
 
 
 

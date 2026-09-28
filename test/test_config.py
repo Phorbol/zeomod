@@ -18,6 +18,7 @@ def test_config_yaml_loading(tmp_path):
     yaml_file = tmp_path / "test.yaml"
     yaml_content = """
     pore_diameter: 15.0
+    doping_sites: [4, 8]
     doping_campaign:
       - mode: auto_single
         ratio: remainder
@@ -26,6 +27,7 @@ def test_config_yaml_loading(tmp_path):
     
     config = BatchZeoliteConfig.from_yaml(str(yaml_file))
     assert config.pore_diameter == 15.0
+    assert config.doping_sites == [4, 8]
     assert config.si_al_ratio == 30.0 #(检查默认值保持不变)
 
 def test_invalid_yaml_key(tmp_path):

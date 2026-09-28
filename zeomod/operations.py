@@ -231,9 +231,57 @@ def _select_doping_sites_proportional(candidate_pool, num_needed, config, graph)
         
     return list(final_sites)
 
+def _validate_manual_doping_sites(atoms: Atoms, requested_sites, graph):
+    """Validate explicit zero-based atom indices for framework Al substitution."""
+    if not isinstance(requested_sites, (list, tuple)) or not requested_sites:
+        raise ValueError("doping_sites must be a non-empty list of atom indices.")
+
+    sites = []
+    for value in requested_sites:
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+            raise ValueError(f"Invalid doping site {value!r}: indices must be integers.")
+        index = int(value)
+        if index < 0 or index >= len(atoms):
+            raise ValueError(
+                f"Invalid doping site {index}: atom index is outside the structure "
+                f"(0..{len(atoms) - 1})."
+            )
+        if atoms[index].symbol != 'Si':
+            raise ValueError(
+                f"Invalid doping site {index}: expected a Si atom, found "
+                f"{atoms[index].symbol}."
+            )
+        if index not in graph.idx_map:
+            raise ValueError(
+                f"Invalid doping site {index}: it is missing from the framework topology."
+            )
+        sites.append(index)
+
+    if len(set(sites)) != len(sites):
+        raise ValueError("doping_sites contains duplicate atom indices.")
+
+    existing_al = [atom.index for atom in atoms if atom.symbol == 'Al']
+    for index in sites:
+        for al_index in existing_al:
+            if graph.get_distance(index, al_index) == 1:
+                raise ValueError(
+                    f"Doping site {index} violates Löwenstein's rule: it is adjacent "
+                    f"to existing Al atom {al_index}."
+                )
+
+    for site1, site2 in combinations(sites, 2):
+        if graph.get_distance(site1, site2) == 1:
+            raise ValueError(
+                f"Doping sites {site1} and {site2} violate Löwenstein's rule "
+                "(adjacent T sites)."
+            )
+
+    return sites
+
 def add_bronsted_sites(atoms: Atoms, config, graph) -> Atoms:
     """创建 B 酸位点，支持 Ratio 模式和 Fixed Count 模式"""
     structure = atoms.copy()
+    requested_sites = getattr(config, 'doping_sites', None)
     
     # 1. 计算目标 Al 总数量 (Total Al = Framework Al + EFAl)
     t_sites = [a for a in structure if a.symbol in ('Si', 'Al')]
@@ -241,8 +289,15 @@ def add_bronsted_sites(atoms: Atoms, config, graph) -> Atoms:
     # === [核心修改逻辑开始] ===
     total_al = 0
     
+    # 显式位点列表同时决定掺杂位置和数量，并覆盖比例/固定数量配置。
+    if requested_sites is not None:
+        sites_to_replace = _validate_manual_doping_sites(structure, requested_sites, graph)
+        total_al = len(sites_to_replace)
+        print(f"\n--- 掺杂模式: 指定位点 (Explicit Sites) ---")
+        print(f"  - 指定 Si 原子索引: {sites_to_replace}")
+
     # 模式 A: 显式指定数量 (优先级高)
-    if config.num_al_atoms is not None and config.num_al_atoms > 0:
+    elif config.num_al_atoms is not None and config.num_al_atoms > 0:
         total_al = config.num_al_atoms
         print(f"\n--- 掺杂模式: 固定数量 (Fixed Count) ---")
         print(f"  - 指定总 Al 数量: {total_al}")
@@ -261,7 +316,7 @@ def add_bronsted_sites(atoms: Atoms, config, graph) -> Atoms:
     # === [核心修改逻辑结束] ===
 
     # 计算骨架 Al (B酸) 和 非骨架 Al (EFAl) 的分配
-    num_efal = int(round(total_al * config.efal_ratio))
+    num_efal = 0 if requested_sites is not None else int(round(total_al * config.efal_ratio))
     bronsted_al = total_al - num_efal
     
     print(f"  - 骨架 Al (B酸) 目标: {bronsted_al}")
@@ -290,9 +345,11 @@ def add_bronsted_sites(atoms: Atoms, config, graph) -> Atoms:
     pool = surface_si if len(surface_si) >= bronsted_al else si_indices
     
     # 3. 循环重试机制 (Löwenstein Rule)
-    sites_to_replace = []
-    for trial in range(config.max_doping_trials):
-        candidates = _select_doping_sites_proportional(pool, bronsted_al, config, graph)
+    if requested_sites is None:
+        sites_to_replace = []
+    for trial in range(1 if requested_sites is not None else config.max_doping_trials):
+        candidates = sites_to_replace if requested_sites is not None else \
+                     _select_doping_sites_proportional(pool, bronsted_al, config, graph)
         
         # 最终验证
         valid = True

@@ -1,11 +1,41 @@
 # tests/test_chemistry.py
 import pytest
 from collections import Counter
+from itertools import combinations
 from zeomod.operations import add_bronsted_sites
 from zeomod.topology import GraphProcessor
 
 def count_elements(atoms):
     return Counter(atoms.get_chemical_symbols())
+
+def test_explicit_doping_sites_override_automatic_selection(dummy_zeolite, base_config):
+    """A supplied site list determines the exact Al count and positions."""
+    graph = GraphProcessor(dummy_zeolite)
+    site = next(atom.index for atom in dummy_zeolite if atom.symbol == 'Si')
+
+    base_config.doping_sites = [site]
+    base_config.num_al_atoms = 5
+    base_config.si_al_ratio = 0
+    base_config.efal_ratio = 1.0
+    base_config.doping_campaign = []
+    base_config.max_doping_trials = 0
+
+    doped_atoms = add_bronsted_sites(dummy_zeolite, base_config, graph)
+
+    assert doped_atoms[site].symbol == 'Al'
+    assert count_elements(doped_atoms)['Al'] == count_elements(dummy_zeolite)['Al'] + 1
+
+def test_explicit_adjacent_doping_sites_are_rejected(dummy_zeolite, base_config):
+    graph = GraphProcessor(dummy_zeolite)
+    adjacent_sites = next(
+        (site1, site2)
+        for site1, site2 in combinations(graph.t_indices, 2)
+        if graph.get_distance(site1, site2) == 1
+    )
+    base_config.doping_sites = list(adjacent_sites)
+
+    with pytest.raises(ValueError, match=r"Löwenstein"):
+        add_bronsted_sites(dummy_zeolite, base_config, graph)
 
 # 参数化测试：测试两种掺杂模式
 @pytest.mark.parametrize("mode", ["ratio", "fixed"])

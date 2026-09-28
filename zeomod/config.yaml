@@ -15,6 +15,7 @@ pore_center_frac: [0.5, 0.5, 0.5] # 孔中心分数坐标
 # --- 化学参数 ---
 si_al_ratio: 15.0          # 硅铝比
 efal_ratio: 0.1            # 非骨架铝比例 (0.0 - 1.0)
+doping_sites: null          # 可选：指定替换为 Al 的 Si 原子索引 (从 0 开始)，设置后优先于数量/比例
 
 # --- 智能掺杂策略 ---
 # mode: 'pair' (成对) 或 'auto_single' (孤立)

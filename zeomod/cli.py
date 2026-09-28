@@ -43,6 +43,10 @@ def main():
     group_chem = parser.add_argument_group('Chemistry Overrides')
     group_chem.add_argument('--si-al', '-r', type=float, help='硅铝比')
     group_chem.add_argument('--num-al', '-n', type=int, help='固定 Al 原子数量')
+    group_chem.add_argument(
+        '--doping-sites', nargs='+', type=int, metavar='ATOM_INDEX',
+        help='指定要替换为 Al 的 Si 原子索引（从 0 开始）'
+    )
     group_chem.add_argument('--efal', type=float, help='非骨架铝比例')
 
     # --- 3. 吸附参数 (Adsorption Overrides) ---
@@ -89,6 +93,7 @@ def main():
     if args.si_al: config.si_al_ratio = args.si_al
     if args.efal: config.efal_ratio = args.efal
     if args.num_al: config.num_al_atoms = args.num_al
+    if args.doping_sites is not None: config.doping_sites = args.doping_sites
 
     if args.set:
         print("Processing generic overrides:")
@@ -134,7 +139,8 @@ def main():
 
         # [4] Doping
         if not config.skip_doping:
-            need_doping = (config.num_al_atoms and config.num_al_atoms > 0) or \
+            need_doping = config.doping_sites is not None or \
+                          (config.num_al_atoms and config.num_al_atoms > 0) or \
                           (config.si_al_ratio > 0 and config.si_al_ratio < 10000)
             if need_doping:
                 print(f"\n>>> [4/5] Doping Al...")

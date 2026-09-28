@@ -26,6 +26,8 @@ class BatchZeoliteConfig:
     si_al_ratio: float = 30.0
     efal_ratio: float = 0.0
     num_al_atoms: Optional[int] = None
+    # Zero-based atom indices in the structure at the start of doping.
+    doping_sites: Optional[List[int]] = None
     # --- 掺杂策略 ---
     doping_campaign: List[Dict[str, Any]] = field(default_factory=lambda: [
         {'mode': 'pair', 'pair_type': 'NNNN', 'ratio': 0.4}, 
